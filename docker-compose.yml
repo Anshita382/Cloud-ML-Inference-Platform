@@ -1,0 +1,128 @@
+
+services:
+  # ─── FastAPI Gateway ───────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_STREAM_KEY=inference:stream
+      - REDIS_CONSUMER_GROUP=inference-workers
+      - APP_PORT=8000
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+  # ─── Inference Workers ─────────────────────────────────────
+  worker-1:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.worker
+    environment:
+      - WORKER_ID=worker-1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_STREAM_KEY=inference:stream
+      - REDIS_CONSUMER_GROUP=inference-workers
+      - BATCH_MAX_SIZE=16
+      - BATCH_TIMEOUT_MS=50
+      - WORKER_POLL_INTERVAL_MS=10
+      - MODEL_NAME=distilbert-base-uncased-finetuned-sst-2-english
+      - MODEL_DEVICE=cpu
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.worker
+    environment:
+      - WORKER_ID=worker-2
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_STREAM_KEY=inference:stream
+      - REDIS_CONSUMER_GROUP=inference-workers
+      - BATCH_MAX_SIZE=16
+      - BATCH_TIMEOUT_MS=50
+      - WORKER_POLL_INTERVAL_MS=10
+      - MODEL_NAME=distilbert-base-uncased-finetuned-sst-2-english
+      - MODEL_DEVICE=cpu
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+  # ─── Redis ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+  # ─── Prometheus ────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+  # ─── Grafana ───────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/inference-dashboard.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - inference-net
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  inference-net:
+    driver: bridge

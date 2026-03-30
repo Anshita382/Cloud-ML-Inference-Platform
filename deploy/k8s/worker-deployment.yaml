@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-worker
+  labels:
+    app: inference-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inference-worker
+  template:
+    metadata:
+      labels:
+        app: inference-worker
+    spec:
+      containers:
+        - name: worker
+          image: inference-worker:latest
+          env:
+            - name: REDIS_HOST
+              value: redis-service
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_STREAM_KEY
+              value: inference:stream
+            - name: REDIS_CONSUMER_GROUP
+              value: inference-workers
+            - name: BATCH_MAX_SIZE
+              value: "16"
+            - name: BATCH_TIMEOUT_MS
+              value: "50"
+            - name: MODEL_DEVICE
+              value: cpu
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+---
+# KEDA ScaledObject — scales workers based on Redis Stream pending count
+# Requires KEDA to be installed: https://keda.sh/docs/deploy/
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inference-worker-scaler
+spec:
+  scaleTargetRef:
+    name: inference-worker
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+    - type: redis-streams
+      metadata:
+        address: redis-service:6379
+        stream: inference:stream
+        consumerGroup: inference-workers
+        pendingEntriesCount: "10"  # Scale up when >10 pending messages per replica

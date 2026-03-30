@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.production
+!.env.example
+
+# Model cache (large files)
+model/cache/
+model/artifacts/*.pt
+model/artifacts/*.onnx
+
+# Test / benchmark outputs
+.pytest_cache/
+.coverage
+htmlcov/
+benchmark_results.json
+/tmp/locust_*
+
+# Docker
+*.log
+
+# Grafana
+grafana-data/
