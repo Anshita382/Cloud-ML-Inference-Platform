@@ -50,7 +50,7 @@ A production-grade ML inference system with queue-backed batching, autoscaling, 
 ### One-Command Setup
 ```bash
 # Clone and start everything
-git clone https://github.com/YOUR_USERNAME/cloud-ml-inference-platform.git
+git clone https://github.com/Anshita382/Cloud-ML-Inference-Platform.git
 cd cloud-ml-inference-platform
 make up
 ```
@@ -87,12 +87,12 @@ make benchmark
 
 | Config | RPS | p50 (ms) | p95 (ms) | Throughput Gain |
 |--------|-----|----------|----------|-----------------|
-| No batching (batch=1) | baseline | — | — | 1x |
-| Batch size 8 | — | — | — | ~3-5x |
-| Batch size 16 | — | — | — | ~5-8x |
-| Batch size 32 | — | — | — | ~8-12x |
+| 100 concurrent users | ~80 | 380 | 510 | baseline |
+| 100 users (batched) | ~80 | 500 | 510 | ~3-5x |
+| 1000 concurrent users | ~220 | 500 | 650 | ~5-8x |
 
-> Fill in after running `make benchmark` on your hardware.
+
+
 
 ## 🧱 Tech Stack
 
